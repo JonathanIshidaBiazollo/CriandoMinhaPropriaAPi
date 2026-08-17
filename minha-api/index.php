@@ -1,157 +1,130 @@
-<?php
-    header("Content-Type: application/json");
-    require_once "conexao.php";
-    $metodo = $_SERVER["REQUEST_METHOD"];//Informa se a requisição é GET, POST, PUT, PATCH ou DELETE
-    if($metodo === "GET"){
-        //BUSCAR
-        if(isset($_GET["id"])){
-            //Buscar um usuário em específico
-            $id = $_GET["id"];
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+  </head>
+  <body>
+    <form action="" id="formulario">
+      <input type="text" id="nome">
+      <input type="email" id="email">
+      <button id="cadastrar">Cadastrar</button>
+    </form>
+    <button id="buscar">Listar</button>
+    <ul id="lista"></ul>
+    <script>
+      const API_URL = "http://localhost/projetos/minha-api/usuarios.php";
+      let usuarioEditando = null;//let não const pq preciso que o valor dessa variável mude conforme o usuario que eu escolher mude
+      //Listar todos os usuários
+      const lista = document.querySelector("#lista");
+      const botao = document.querySelector("#buscar");
 
-            $sql = "SELECT *
-                    FROM usuarios
-                    WHERE id = ?
-            ";
+      botao.addEventListener("click", async()=>{
+        try{
+          const resposta = await fetch(API_URL);
 
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$id]);
+          if(!resposta.ok){
+            throw new Error("Erro ao buscar usuários");
+          }
 
-            $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+          const usuarios = await resposta.json();
+          console.log(usuarios);
 
-            echo json_encode($usuario);
-        }else{
-            $sql = "SELECT * FROM usuarios";
-            $stmt = $pdo->query($sql);
-            $usuarios = $stmt->fetchALL(PDO::FETCH_ASSOC);
-            echo json_encode($usuarios);
+          lista.innerHTML = "";
+          usuarios.forEach(usuario => {
+            lista.innerHTML+=`
+              <li data-id="${usuario.id}">
+                <h2>${usuario.nome}</h2>
+                <p>${usuario.email}</p>
+                <button data-id="${usuario.id}" class="excluir">excluir</button>
+                <button data-id="${usuario.id}" class="editar">Editar</button>
+              </li>
+            `;
+          })
+        }catch(erro){
+          console.error(erro);
+          lista.innerHTML = `
+            <li>Erro ao carregar usuários</li>
+          `;
         }
-    }else if($metodo === "POST"){
-        //CADASTRAR
-        $dados = json_decode(
-            file_get_contents("php://input"), 
-            true
-        );
+      });
 
-        if(empty($dados["nome"]) || empty($dados["email"])){
-            http_response_code(400);
+      //Adicionar mais usuários
+      const formulario = document.querySelector("#formulario");
 
-            echo json_encode([
-                "erro" => "Nome e email são obrigatórios"
-            ]);
+      formulario.addEventListener("submit", async(evento) => {
+        evento.preventDefault();//Por padrão o botão de submit envia o formulário e nesse caso eu quero evitar isso
 
-            exit;
+        const nome = document.querySelector("#nome").value;
+        const email = document.querySelector("#email").value;
+
+        try{
+          const resposta = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({//bem parecido com a estrutura que se usa em testes no POSTMAN, porém aqui é necessário fazer a conversão, coisa que o POSTMAN faria por mim automaticamente
+              nome: nome,
+              email: email
+            })
+          });
+
+          if(!resposta.ok){
+            throw new Error("Erro ao cadastrar usuário");
+          }
+
+          const dados = await resposta.json();
+          lista.innerHTML += `
+            <li data-id="${dados.id}">
+              <h2>${dados.nome}</h2>
+              <p>${dados.email}</p>
+              <button data-id="${dados.id}" class="excluir">Excluir</button>
+              <button data-id="${dados.id}" class="editar">Editar</button>
+            </li>
+          `;
+          //Com essa inserção do html, não éw necessário fazer outro get pra atualizar a lista, pois o POST já devolveu os dados que foram cadastrados a pouco, então é só usá-los diretamente
+          console.log(dados);
+          alert("Usuário cadastrado com sucesso!");
+          formulario.reset();
+        }catch(erro){
+          console.error(erro);
+          alert("Erro ao cadastrar usuário");
         }
+      });
 
-        $nome = $dados["nome"];
-        $email = $dados["email"];
+      
+      lista.addEventListener("click", async(evento) => {
+        if(evento.target.classList.contains("excluir")){
+          //Apagar usuários
+          const id = evento.target.dataset.id;
+          console.log("ID a ser excluído: ", id);
+          try{
+            const resposta = await fetch(`${API_URL}?id=${id}`, {
+              method: "DELETE"
+            });
+            if(!resposta.ok){
+              throw new Error("Erro ao excluir usuário");
+            }
 
-        /*
-        //Para usar no POSTMAN
-        $sql = "INSERT INTO usuarios(
-                    nome,
-                    email)
-                VALUES(
-                    :nome,
-                    :email);
-                ";
-        */
-        $sql = "INSERT INTO usuarios(
-                    nome,
-                    email)
-                VALUES(
-                    ?,
-                    ?);
-                ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $nome,
-            $email
-        ]);
-
-        http_response_code(201);//A requisição foi criada e um novo recurso foi criado
-
-        echo json_encode([
-            "mensagem" => "Usuário cadastrado com sucesso",
-            "id" => $pdo->lastInsertId(),
-            "nome" => $nome,
-            "email" => $email
-        ]);
-
-        
-        /*
-        //Para usar no POSTMAN
-        $stmt->execute([
-            ":nome" => $nome,
-            ":email" => $email
-        ]);
-        
-        echo json_encode([
-            "mensagem" => "Usuário cadastrado com sucesso",
-            "id" => $pdo->lastInsertId()
-        ]);
-        */
-    }else if($metodo === "PATCH"){
-        //ATUALIZAR/EDITAR
-        $id = $_GET["id"];
-
-        $dados = json_decode(
-            file_get_contents("php://input"),
-            true
-        );
-
-        if(empty($dados["nome"]) || empty($dados["email"])){
-            http_response_code(400);
-
-            echo json_encode([
-                "erro" => "Nome e email são obrigatórios"
-            ]);
-
-            exit;
+            const dados = await resposta.json();
+            console.log(dados);
+            evento.target.parentElement.remove();
+          }catch(erro){
+            console.error(erro);
+            alert("Erro ao excluir usuário");
+          }
+          
+        }else if(evento.target.classList.contains("editar")){
+          //Editar usuários
+          const id = evento.target.dataset.id;
+          usuarioEditando = id;
+          console.log("Usuário sendo editado: ", usuarioEditando)
         }
+      });
 
-        $nome = $dados["nome"];
-        $email = $dados["email"];
-
-        $sql = "UPDATE usuarios
-                SET 
-                    nome = ?,
-                    email = ?
-                WHERE 
-                    id = ?
-                ";
-
-        $stmt = $pdo->prepare($sql);
-
-        $stmt->execute([
-            $nome,
-            $email,
-            $id
-        ]);
-
-        echo json_encode([
-            "mensagem" => "Usuário atualizado com sucesso"
-        ]);
-    }else if($metodo === "DELETE"){
-        //EXCLUIR/APAGAR
-        $id = $_GET["id"];
-
-        $sql = "DELETE FROM usuarios
-                WHERE id = ?
-        ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $id
-        ]);
-
-        echo json_encode([
-            "mensagem" => "Usuário deletado com sucesso"
-        ]);
-    }else{
-        http_response_code(405);
-
-        echo_json_encode([
-            "erro" => "Método não permitido"
-        ]);
-    }
-?>
+    </script>
+  </body>
+</html>
