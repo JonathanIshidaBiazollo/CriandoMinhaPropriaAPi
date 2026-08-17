@@ -4,10 +4,27 @@
     $metodo = $_SERVER["REQUEST_METHOD"];//Informa se a requisição é GET, POST, PUT, PATCH ou DELETE
     if($metodo === "GET"){
         //BUSCAR
-        $sql = "SELECT * FROM usuarios";
-        $stmt = $pdo->query($sql);
-        $usuarios = $stmt->fetchALL(PDO::FETCH_ASSOC);
-        echo json_encode($usuarios);
+        if(isset($_GET["id"])){
+            //Buscar um usuário em específico
+            $id = $_GET["id"];
+
+            $sql = "SELECT *
+                    FROM usuarios
+                    WHERE id = ?
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$id]);
+
+            $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            echo json_encode($usuario);
+        }else{
+            $sql = "SELECT * FROM usuarios";
+            $stmt = $pdo->query($sql);
+            $usuarios = $stmt->fetchALL(PDO::FETCH_ASSOC);
+            echo json_encode($usuarios);
+        }
     }else if($metodo === "POST"){
         //CADASTRAR
         $dados = json_decode(
