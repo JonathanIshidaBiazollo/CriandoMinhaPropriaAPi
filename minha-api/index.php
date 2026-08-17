@@ -16,6 +16,7 @@
     <script>
       const API_URL = "http://localhost/projetos/minha-api/usuarios.php";
       let usuarioEditando = null;//let não const pq preciso que o valor dessa variável mude conforme o usuario que eu escolher mude
+  
       //Listar todos os usuários
       const lista = document.querySelector("#lista");
       const botao = document.querySelector("#buscar");
@@ -56,10 +57,13 @@
       formulario.addEventListener("submit", async(evento) => {
         evento.preventDefault();//Por padrão o botão de submit envia o formulário e nesse caso eu quero evitar isso
 
+        const metodo = usuarioEditando ? "POST" : "PATCH";
+        
         const nome = document.querySelector("#nome").value;
         const email = document.querySelector("#email").value;
 
         try{
+
           const resposta = await fetch(API_URL, {
             method: "POST",
             headers: {
@@ -122,6 +126,21 @@
           const id = evento.target.dataset.id;
           usuarioEditando = id;
           console.log("Usuário sendo editado: ", usuarioEditando)
+          try {
+            const resposta = await fetch(`${API_URL}?id=${id}`);
+            if(!resposta.ok){
+              throw new Error("Erro ao buscar usuário");
+            }
+            const usuario = await resposta.json();
+            console.log(usuario);
+
+            document.querySelector("#nome").value = usuario.nome;
+            document.querySelector("#email").value = usuario.email;
+          } catch (erro) {
+            console.error(erro);
+            alert("Erro ao buscar usuário");
+            
+          }
         }
       });
 
