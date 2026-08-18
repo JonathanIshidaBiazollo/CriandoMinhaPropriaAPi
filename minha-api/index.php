@@ -15,7 +15,7 @@
     <ul id="lista"></ul>
     <script>
       const API_URL = "http://localhost/projetos/minha-api/usuarios.php";
-      let usuarioEditando = null;//let não const pq preciso que o valor dessa variável mude conforme o usuario que eu escolher mude
+      let usuarioEditando = null;//let e não const pq preciso que o valor dessa variável mude conforme o usuario que eu escolher
   
       //Listar todos os usuários
       const lista = document.querySelector("#lista");
