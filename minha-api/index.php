@@ -57,15 +57,18 @@
       formulario.addEventListener("submit", async(evento) => {
         evento.preventDefault();//Por padrão o botão de submit envia o formulário e nesse caso eu quero evitar isso
 
-        const metodo = usuarioEditando ? "POST" : "PATCH";
+        const metodo = usuarioEditando ? "PATCH" : "POST";
+        const URL = usuarioEditando
+                    ? `${API_URL}?id=${usuarioEditando}`//essa linha faz isso -> http://localhost/projetos/minha-api/usuarios.php?id=8
+                    : API_URL;
         
         const nome = document.querySelector("#nome").value;
         const email = document.querySelector("#email").value;
 
         try{
 
-          const resposta = await fetch(API_URL, {
-            method: "POST",
+          const resposta = await fetch(URL, {
+            method: metodo,
             headers: {
               "Content-Type": "application/json"
             },
@@ -81,21 +84,42 @@
           }
 
           const dados = await resposta.json();
-          lista.innerHTML += `
-            <li data-id="${dados.id}">
+          if(usuarioEditando){
+            const li = document.querySelector(
+              `li[data-id="${usuarioEditando}"]`
+            );
+            li.innerHTML = `
               <h2>${dados.nome}</h2>
               <p>${dados.email}</p>
               <button data-id="${dados.id}" class="excluir">Excluir</button>
               <button data-id="${dados.id}" class="editar">Editar</button>
-            </li>
-          `;
+            `;
+            usuarioEditando = null;
+          }else{
+            lista.innerHTML += `
+              <li data-id="${dados.id}">
+                <h2>${dados.nome}</h2>
+                <p>${dados.email}</p>
+                <button data-id="${dados.id}" class="excluir">Excluir</button>
+                <button data-id="${dados.id}" class="editar">Editar</button>
+              </li>
+            `;
+          }
           //Com essa inserção do html, não éw necessário fazer outro get pra atualizar a lista, pois o POST já devolveu os dados que foram cadastrados a pouco, então é só usá-los diretamente
           console.log(dados);
-          alert("Usuário cadastrado com sucesso!");
+          if (metodo === "PATCH") {
+              alert("Usuário atualizado com sucesso!");
+          } else {
+              alert("Usuário cadastrado com sucesso!");
+          }
           formulario.reset();
         }catch(erro){
           console.error(erro);
-          alert("Erro ao cadastrar usuário");
+          if(metodo === "PATCH"){
+              alert("Erro ao atualizar usuário");
+          }else{
+              alert("Erro ao cadastrar usuário"); 
+          }
         }
       });
 
