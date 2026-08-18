@@ -129,7 +129,10 @@
         ]);
 
         echo json_encode([
-            "mensagem" => "Usuário atualizado com sucesso"
+            "mensagem" => "Usuário atualizado com sucesso",
+            "id" => $id,
+            "nome" => $nome,
+            "email" => $email
         ]);
     }else if($metodo === "DELETE"){
         //EXCLUIR/APAGAR
