@@ -18,6 +18,14 @@
 
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            if(!$usuario){
+                http_response_code(404);//Recurso não encontrado
+
+                echo json_encode([
+                    "erro" => "Usuário não encontrado"
+                ]);
+                exit;
+            }
             echo json_encode($usuario);
         }else{
             $sql = "SELECT * FROM usuarios";
@@ -32,6 +40,9 @@
             true
         );
 
+        $nome = $dados["nome"] ?? "";
+        $email = $dados["email"] ?? "";
+
         if(empty($dados["nome"]) || empty($dados["email"])){
             http_response_code(400);
 
@@ -42,8 +53,16 @@
             exit;
         }
 
-        $nome = $dados["nome"];
-        $email = $dados["email"];
+        //não basta colocar só o type email no html, pois o usuário pode mudar lá, tem que tratar aqui tbm
+        if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+            http_response_code(400);
+
+            echo json_encode([
+                "erro" => "Email inválido"
+            ]);
+
+            exit;
+        }
 
         /*
         //Para usar no POSTMAN
@@ -92,7 +111,38 @@
         */
     }else if($metodo === "PATCH"){
         //ATUALIZAR/EDITAR
+
+        //Primeiro verifico se o id não está vazio
+        if(!isset($_GET["id"])){
+            http_response_code(400);
+
+            echo json_encode([
+                "erro" => "ID do usuário é obrigatório"
+            ]);
+            exit;
+        }
+
+        //Pra depois pegar o valor e atribuir a uma variável e poder usar 
         $id = $_GET["id"];
+
+        //Agora vou verificar se esse id existe no banco de dados pra poder editá-lo
+        $sql = "SELECT id
+                FROM usuarios
+                WHERE id = ?
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$id]);
+
+        if(!$stmt->fetch()){
+            http_response_code(404);
+
+            echo json_encode([
+                "erro" => "Usuário não encontrado"
+            ]);
+
+            exit;
+        }
 
         $dados = json_decode(
             file_get_contents("php://input"),
@@ -112,6 +162,16 @@
         $nome = $dados["nome"];
         $email = $dados["email"];
 
+        if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+            http_response_code(400);
+
+            echo json_encode([
+                "erro" => "Email inválido"
+            ]);
+
+            exit;
+        }
+
         $sql = "UPDATE usuarios
                 SET 
                     nome = ?,
@@ -128,6 +188,16 @@
             $id
         ]);
 
+        if($stmt->rowCount() === 0){//indica qtas linhas foram afetadas, ou seja, se o id não existir, não será afetado e portanto não será dada a msg de Usuário atualizado, mas o ideal seria dar um select e depois o update, pois se vc alterar com as mesmas informações ele pode retornar que nenhuma linha foi afetada a depender do banco
+            http_response_code(400);
+
+            echo json_encode([
+                "erro" => "Usuário não encontrado"
+            ]);
+
+            exit;
+        }
+
         echo json_encode([
             "mensagem" => "Usuário atualizado com sucesso",
             "id" => $id,
@@ -136,7 +206,38 @@
         ]);
     }else if($metodo === "DELETE"){
         //EXCLUIR/APAGAR
+
+        //Igual no PATCH vamos verficar se mandaram um id
+        if(!isset($_GET["id"])){
+            http_response_code(400);
+
+            echo json_encode([
+                "erro" => "ID do usuário é obrigatório"
+            ]);
+
+            exit;
+        }
+
+        //Pra depois colocar em uma variável e usá-lo
         $id = $_GET["id"];
+
+        //e depois verificar se ele existe no banco
+        $sql = "SELECT id
+                FROM usuarios
+                WHERE id = ?
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$id]);
+
+        if(!$stmt->fetch()){
+            http_response_code(404);
+
+            echo json_encode([
+                "erro" => "Usuário não encontrado"
+            ]);
+            exit;
+        }
 
         $sql = "DELETE FROM usuarios
                 WHERE id = ?
@@ -153,7 +254,7 @@
     }else{
         http_response_code(405);
 
-        echo_json_encode([
+        echo json_encode([
             "erro" => "Método não permitido"
         ]);
     }
