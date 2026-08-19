@@ -1,10 +1,18 @@
 <?php
     header("Content-Type: application/json");
     require_once "conexao.php";
+    require_once "funcoes.php";
+
+
     $metodo = $_SERVER["REQUEST_METHOD"];//Informa se a requisição é GET, POST, PUT, PATCH ou DELETE
     if($metodo === "GET"){
         //BUSCAR
         if(isset($_GET["id"])){
+            if(!is_numeric($_GET["id"])){
+                responder([
+                    "erro" => "ID inválido"
+                ], 400);
+            }
             //Buscar um usuário em específico
             $id = $_GET["id"];
 
@@ -19,12 +27,9 @@
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if(!$usuario){
-                http_response_code(404);//Recurso não encontrado
-
-                echo json_encode([
+                responder([
                     "erro" => "Usuário não encontrado"
-                ]);
-                exit;
+                ], 404);//código de usuário não encontrado
             }
             echo json_encode($usuario);
         }else{
@@ -40,29 +45,16 @@
             true
         );
 
+        if($dados === null){
+            responder([
+                "erro" => "JSON inválido"
+            ], 400);
+        }
+
         $nome = $dados["nome"] ?? "";
         $email = $dados["email"] ?? "";
 
-        if(empty($dados["nome"]) || empty($dados["email"])){
-            http_response_code(400);
-
-            echo json_encode([
-                "erro" => "Nome e email são obrigatórios"
-            ]);
-
-            exit;
-        }
-
-        //não basta colocar só o type email no html, pois o usuário pode mudar lá, tem que tratar aqui tbm
-        if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
-            http_response_code(400);
-
-            echo json_encode([
-                "erro" => "Email inválido"
-            ]);
-
-            exit;
-        }
+        validarUsuario($dados);
 
         /*
         //Para usar no POSTMAN
@@ -87,6 +79,8 @@
             $email
         ]);
 
+        /*
+        //Exemplo sem usar a função no início do código
         http_response_code(201);//A requisição foi criada e um novo recurso foi criado
 
         echo json_encode([
@@ -95,7 +89,14 @@
             "nome" => $nome,
             "email" => $email
         ]);
+        */
 
+        responder([
+            "mensagem" => "Usuário cadastrado com sucesso",
+            "id" => $pdo->lastInsertId(),
+            "nome" => $nome,
+            "email" => $email
+        ], 201);
         
         /*
         //Para usar no POSTMAN
@@ -114,16 +115,18 @@
 
         //Primeiro verifico se o id não está vazio
         if(!isset($_GET["id"])){
-            http_response_code(400);
-
-            echo json_encode([
+            responder([
                 "erro" => "ID do usuário é obrigatório"
-            ]);
-            exit;
+            ], 400);
         }
 
         //Pra depois pegar o valor e atribuir a uma variável e poder usar 
         $id = $_GET["id"];
+        if(!is_numeric($id)){
+            responder([
+                "erro" => "ID inválido"
+            ]);
+        }
 
         //Agora vou verificar se esse id existe no banco de dados pra poder editá-lo
         $sql = "SELECT id
@@ -135,13 +138,9 @@
         $stmt->execute([$id]);
 
         if(!$stmt->fetch()){
-            http_response_code(404);
-
-            echo json_encode([
+            responder([
                 "erro" => "Usuário não encontrado"
-            ]);
-
-            exit;
+            ], 404);
         }
 
         $dados = json_decode(
@@ -149,28 +148,26 @@
             true
         );
 
-        if(empty($dados["nome"]) || empty($dados["email"])){
-            http_response_code(400);
-
-            echo json_encode([
-                "erro" => "Nome e email são obrigatórios"
-            ]);
-
-            exit;
+        //Faz a mesma coisa dos $dados === null
+        /*
+        if(json_last_error() !== JSON_ERROR_NONE){
+            responder([
+                "erro" => "JSON Inválido"
+            ], 400);
         }
+
+        */
+        if($dados === null){
+            responder([
+                "erro" => "JSON Inválido"
+            ], 400);
+        }
+
+
+        validarUsuario($dados);
 
         $nome = $dados["nome"];
         $email = $dados["email"];
-
-        if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
-            http_response_code(400);
-
-            echo json_encode([
-                "erro" => "Email inválido"
-            ]);
-
-            exit;
-        }
 
         $sql = "UPDATE usuarios
                 SET 
@@ -188,38 +185,48 @@
             $id
         ]);
 
+        /*
+        //Fazendo o uso do select antes para verificar se o usuário existe essa linha com rowCount não é mais necessária
         if($stmt->rowCount() === 0){//indica qtas linhas foram afetadas, ou seja, se o id não existir, não será afetado e portanto não será dada a msg de Usuário atualizado, mas o ideal seria dar um select e depois o update, pois se vc alterar com as mesmas informações ele pode retornar que nenhuma linha foi afetada a depender do banco
-            http_response_code(400);
-
-            echo json_encode([
+            responder([
                 "erro" => "Usuário não encontrado"
-            ]);
-
-            exit;
+            ], 400);
         }
 
+        */
+        //Exemplo sem usar a função
+        /*
         echo json_encode([
             "mensagem" => "Usuário atualizado com sucesso",
             "id" => $id,
             "nome" => $nome,
             "email" => $email
         ]);
+        */
+        responder([
+            "mensagem" => "Usuário atualizado com sucesso",
+            "id" => $id,
+            "nome" => $nome,
+            "email" => $email
+        ], 200);
     }else if($metodo === "DELETE"){
         //EXCLUIR/APAGAR
 
         //Igual no PATCH vamos verficar se mandaram um id
         if(!isset($_GET["id"])){
-            http_response_code(400);
-
-            echo json_encode([
+            responder([
                 "erro" => "ID do usuário é obrigatório"
-            ]);
-
-            exit;
+            ], 400);
         }
 
         //Pra depois colocar em uma variável e usá-lo
         $id = $_GET["id"];
+
+        if(!is_numeric($id)){
+            responder([
+                "erro" => "ID inválido"
+            ]);
+        }
 
         //e depois verificar se ele existe no banco
         $sql = "SELECT id
@@ -231,13 +238,19 @@
         $stmt->execute([$id]);
 
         if(!$stmt->fetch()){
-            http_response_code(404);
-
-            echo json_encode([
+            responder([
                 "erro" => "Usuário não encontrado"
-            ]);
-            exit;
+            ], 404);
         }
+
+        //AO invés de usar o select use o rowcount, diferente do patch ele não dá problema no delete
+        /*
+            if($stmt->rowCount() === 0){
+                responder([
+                    "erro" => "Usuário não encontrado"
+                ], 404);
+            }
+        */
 
         $sql = "DELETE FROM usuarios
                 WHERE id = ?
@@ -248,14 +261,18 @@
             $id
         ]);
 
+        //sem usar a função responder
+        /*
         echo json_encode([
             "mensagem" => "Usuário deletado com sucesso"
         ]);
-    }else{
-        http_response_code(405);
-
-        echo json_encode([
-            "erro" => "Método não permitido"
+        */
+        responder([
+            "mensagem" => "Usuário deletado com sucesso"
         ]);
+    }else{
+        responder([
+            "erro" => "Método não permitido"
+        ], 405);
     }
 ?>
